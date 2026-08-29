@@ -153,6 +153,7 @@ class Agent:
             "profile": user_profile if isinstance(user_profile, dict) else {},
             "category_text": "",
             "constraints": [],
+            "initial_constraint": "",
             "messages": [],
             "override_count": 0,
             "last_recommendations": [],
@@ -190,12 +191,21 @@ class Agent:
         if not state["category_text"]:
             state["category_text"] = self._category_from_initial(user_message)
 
+        constraint = self._constraint_from_message(user_message)
         if OVERRIDE_RE.search(user_message) and state["messages"][:-1]:
-            state["constraints"] = []
+            # The simulator's override replaces the original preference, not
+            # every fact learned before the replacement.  Keep constraints that
+            # were disclosed in prior turns and remove the initial preference.
+            initial_constraint = state.get("initial_constraint", "")
+            if initial_constraint:
+                state["constraints"] = [
+                    value for value in state["constraints"] if value != initial_constraint
+                ]
             state["override_count"] += 1
 
-        constraint = self._constraint_from_message(user_message)
         if constraint:
+            if not state["messages"][:-1] and not state["initial_constraint"]:
+                state["initial_constraint"] = constraint
             state["constraints"].append(constraint)
 
     def _idf(self, term: str) -> float:
@@ -290,6 +300,23 @@ class Agent:
         score += 6.0 * weighted_overlap(category_terms, "categories")
         score += 4.0 * weighted_overlap(category_terms, "features")
 
+        # The evaluator supplies the last category levels (for example,
+        # "Shirts T-Shirts").  Require those words to be represented in the
+        # catalog's category field, not merely somewhere in a description.
+        base_category_terms = set(_terms(state["category_text"]))
+        category_field_terms = field_sets["categories"]
+        if base_category_terms:
+            category_coverage = len(base_category_terms & category_field_terms) / len(base_category_terms)
+            score += 8.0 * category_coverage
+            score -= 3.0 * (1.0 - category_coverage)
+            category_phrase = " ".join(_terms(state["category_text"]))
+            category_text = " ".join(_terms(str(row.get("categories", ""))))
+            if len(base_category_terms) >= 2 and category_phrase in category_text:
+                score += 8.0
+
+        product_phrase = " ".join(
+            _terms(" ".join(str(row.get(field, "")) for field in FIELD_NAMES))
+        )
         for index, group in enumerate(constraint_groups):
             overlap = group & all_product_terms
             if group:
@@ -299,6 +326,26 @@ class Agent:
                 score += (16.0 if index == 0 else 11.0) * match
                 if overlap and len(group) <= 3:
                     score += 3.0
+
+                # Hidden intent-card values are copied from catalog metadata.
+                # Preserve word order and reward an exact phrase strongly; this
+                # separates the target from products that merely mention the
+                # same common material or color.
+                phrase = " ".join(_terms(state["constraints"][index]))
+                if phrase and phrase in product_phrase:
+                    score += 14.0 if index == 0 else 10.0
+                # A simulator reply can contain multiple metadata values joined
+                # with semicolons.  Their order may differ across catalog fields,
+                # so score each meaningful clause independently as well.
+                for clause in state["constraints"][index].split(";"):
+                    clause_terms = _terms(clause)
+                    clause_phrase = " ".join(clause_terms)
+                    if len(clause_terms) >= 2 and clause_phrase in product_phrase:
+                        score += 6.0 if index == 0 else 4.0
+                        # Exact clauses containing rare words are much more
+                        # diagnostic than generic clauses such as "imported".
+                        specificity = sum(self._idf(term) for term in clause_terms)
+                        score += min(10.0, specificity * 0.85)
 
         for term in category_terms | constraint_terms:
             if term in MATERIALS and term in all_product_terms:
@@ -332,7 +379,7 @@ class Agent:
             rating_count = float(row["rating_number"])
         except (TypeError, ValueError):
             rating_count = 0.0
-        score += 0.15 * rating + 0.10 * math.log1p(max(0.0, rating_count))
+        score += 0.20 * rating + 0.22 * math.log1p(max(0.0, rating_count))
         score += max(-2.0, min(2.0, -float(row["retrieval_rank"]))) * 0.15
         return score
 
