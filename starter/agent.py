@@ -366,8 +366,13 @@ class Agent:
         score += 4.0 * weighted_overlap(constraint_terms, "title")
         score += 2.0 * weighted_overlap(constraint_terms, "categories")
         score += 1.0 * weighted_overlap(constraint_terms, "features")
-        score += 1.0 * weighted_overlap(profile_terms, "title")
-        score += 0.5 * weighted_overlap(profile_terms, "features")
+        # user_profile.preference_tags is available from turn 1, but with no
+        # disclosed constraints yet (e.g. browsing's opening turn) it's the
+        # only real signal beyond the category text -- weight it much more
+        # heavily until real constraints start accumulating.
+        profile_weight = 1.0 if state["constraints"] else 6.0
+        score += profile_weight * weighted_overlap(profile_terms, "title")
+        score += (profile_weight * 0.5) * weighted_overlap(profile_terms, "features")
 
         price = self._parse_price(" ".join(state["constraints"]))
         if price is not None:
