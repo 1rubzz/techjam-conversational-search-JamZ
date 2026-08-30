@@ -17,6 +17,15 @@ OVERRIDE_RE = re.compile(
     r"\b(?:actually|instead|rather|ignore|changed|change|new requirement|what i need)\b",
     re.I,
 )
+# The simulator's reply templates always lead with one of these fixed
+# phrases before the actual constraint content. Matching the phrase and
+# taking everything after it (rather than splitting on the last colon in
+# the message) correctly captures multi-clause values that themselves
+# contain colons, e.g. "leather; color: brown" or "Item model number: X".
+CONSTRAINT_LEADIN_RE = re.compile(
+    r"(?:a key requirement is|for that,? what matters is|what i need is)\s*:\s*(.+)",
+    re.I,
+)
 
 STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from",
@@ -171,8 +180,9 @@ class Agent:
             return ""
         if "still exploring" in lowered:
             return ""
-        if ":" in message:
-            return message.rsplit(":", 1)[1].strip(" .;\n")
+        leadin_match = CONSTRAINT_LEADIN_RE.search(message)
+        if leadin_match:
+            return leadin_match.group(1).strip(" .;\n")
         sentences = [part.strip(" .") for part in message.split(".") if part.strip()]
         return sentences[-1] if len(sentences) > 1 else ""
 
