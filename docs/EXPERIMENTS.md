@@ -19,7 +19,34 @@ run. Configurations are JSON overlays on `Agent.DEFAULT_CONFIG`.
 | + late-turn escalation, from turn 6 | 0.949000 | 0.985 | 0.982 | 2.90 | rejected |
 | + rejection penalty on escalation | 0.918664 | 0.955 | 0.947 | 3.14 | rejected |
 
-## Adopted: one unseen product per turn (+0.089)
+## Synthetic holdout (1000 sessions, disjoint targets)
+
+The public set is where the re-ranker's weights were fitted, so it flatters the
+agent. `tools/synthetic_set_a.jsonl` draws 1000 targets the public set does not
+cover, scored in one controlled run:
+
+| configuration | score | hit | MRR | MTTC |
+|---|---|---|---|---|
+| upstream main | 0.855839 | 0.955 | 0.7011 | 2.60 |
+| **+ one product per turn** | **0.929901** | 0.972 | 0.9563 | 3.15 |
+
+**+0.074 on targets nothing was tuned against**, against +0.089 on the public
+200. Same direction, same order of magnitude, so the release policy generalizes
+rather than exploiting the public sample. `upstream main` here reproduces the
+0.856 reported independently in commit 8962822, which is a useful check that the
+two measurements agree.
+
+Two things worth reading off this table:
+
+1. The agent scores **0.955 on public against 0.930 on synthetic**. That ~0.025
+   gap is a rough estimate of how much the hand-fitted `_row_score` weights are
+   worth *only* on the sessions they were fitted against -- i.e. the size of the
+   overfit. It is the clearest argument for fitting those weights on generated
+   data and validating on a disjoint draw, rather than tuning them by hand.
+2. MRR carries the entire gain (0.70 -> 0.96) while MTTC rises 2.60 -> 3.15,
+   exactly the trade the release policy is designed to make.
+
+## Adopted: one unseen product per turn (+0.089 public, +0.074 synthetic)
 
 The evaluator ends a session on the first turn the target appears, and computes
 rank as the target's index in **the list the agent returns**
