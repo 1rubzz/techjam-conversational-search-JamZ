@@ -105,7 +105,11 @@ def assign_scenarios(rng: random.Random, count: int) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a synthetic session set for local generalization testing")
     parser.add_argument("--count", type=int, default=2000)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Fixed seed for a reproducible set (used for the committed A/B/C sets). "
+             "Omit for a fresh random draw each run.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
