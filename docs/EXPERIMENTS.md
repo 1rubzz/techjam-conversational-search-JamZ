@@ -124,17 +124,38 @@ generalize. Two instruments address that:
   needs only an ASIN, a scenario type, and a profile. `tools/synthetic_set_{a,b,c}.jsonl`
   hold 1000 sessions each, drawn from catalog products the public set does not
   cover, with the public set's scenario proportions.
-- **Randomised holdout.** `tools/experiment.py --random N --repeat R` draws a
-  *fresh* set on every run, so unlike a saved file it cannot be tuned against.
-  It reports mean and spread across independent draws rather than one number.
+- **One-command random check** (Jose Loh). `tools/run_random_check.py` draws a
+  fresh randomly-seeded set and evaluates against it in a single step. The
+  generated file is deliberately not committed, since a new one is drawn each
+  run.
+- **Randomised holdout in the harness.** `tools/experiment.py --random N
+  --repeat R` draws fresh sets in memory and reports mean and spread across
+  independent draws rather than one number, reusing a single catalog index
+  across every configuration.
 
 ```bash
-python tools/experiment.py --random 500 --repeat 5
+python tools/run_random_check.py                              # quick sanity check
+python tools/experiment.py --random 500 --repeat 5            # spread over draws
 python tools/experiment.py --random 500 --repeat 3 --seed 7   # reproducible
 ```
 
-Both reuse `generate_synthetic_set.build_sessions()`, so the CLI and the harness
-share one code path.
+All three paths call `generate_synthetic_set.build_sessions()`, so there is one
+sampling implementation rather than several. Omitting `--seed` means a fresh
+draw; passing one reproduces a set exactly, and the committed A/B/C sets still
+regenerate from seed 0 and 1 as documented.
+
+### Holdout discipline
+
+The three instruments are not interchangeable, and using them interchangeably
+would defeat the point:
+
+- `synthetic_set_a.jsonl` -- reuse freely while iterating, for controlled
+  before/after comparisons.
+- `synthetic_set_c.jsonl` -- keep **sealed**. Run it once per candidate change,
+  immediately before deciding whether to keep that change, never to guide
+  further tuning. A held-out set consulted repeatedly stops being held out.
+- `run_random_check.py` / `--random` -- disposable. Fresh products every run, so
+  it cannot be tuned against at all.
 
 ## Note on the fallback in `respond`
 

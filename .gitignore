@@ -16,3 +16,7 @@ docs/participant_release_checklist.md
 tests/test_5core_builder.py
 tests/test_organizer_pipeline.py
 *.log
+# Disposable output from tools/run_random_check.py -- a fresh set is drawn
+# each run, so there's nothing worth committing here.
+tools/_random_check.jsonl
+tools/_random_check_results.json

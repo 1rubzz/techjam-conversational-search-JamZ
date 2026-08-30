@@ -117,12 +117,13 @@ def eligible_targets() -> list[str]:
     return catalog_asins
 
 
-def build_sessions(count: int, seed: int, prefix: str = "synthetic") -> list[dict]:
+def build_sessions(count: int, seed: int | None, prefix: str = "synthetic") -> list[dict]:
     """Build `count` sessions in the schema the official evaluator expects.
 
     Exposed so a caller can hold a freshly drawn set in memory (see
     tools/experiment.py --random) rather than only writing one to disk.
     """
+    # random.Random(None) seeds from OS entropy, i.e. a fresh draw.
     rng = random.Random(seed)
     catalog_asins = eligible_targets()
     if count > len(catalog_asins):
@@ -150,7 +151,11 @@ def main() -> None:
         description="Generate a synthetic session set for local generalization testing"
     )
     parser.add_argument("--count", type=int, default=2000)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Fixed seed for a reproducible set (used for the committed A/B/C sets). "
+             "Omit for a fresh random draw each run.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
