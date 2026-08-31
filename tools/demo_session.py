@@ -40,7 +40,23 @@ def wrap(text: str, indent: str = "") -> str:
 
 
 def field(label: str, value: str, indent: str = "  ") -> None:
-    print(wrap(value, indent + " " * 12).replace(" " * 12, f"{label:<12}", 1))
+    """One labelled line, wrapped and hanging-indented under its label.
+
+    Built explicitly rather than by wrapping and then string-replacing the
+    indent: that trick drops the label whenever the value is empty, and can
+    substitute into the middle of the text when the value itself contains a run
+    of spaces.
+    """
+    gutter = f"{indent}{label:<12}"
+    print(
+        textwrap.fill(
+            str(value),
+            width=WIDTH,
+            initial_indent=gutter,
+            subsequent_indent=" " * len(gutter),
+        )
+        or gutter.rstrip()
+    )
 
 
 def clip(text: str, limit: int) -> str:
