@@ -208,14 +208,8 @@ state that affects results survives `reset()`.
 
 | Contributor | Area |
 |---|---|
-| wsxcode | Hybrid retrieval agent, BM25 field weighting, re-ranking heuristics |
+| Ruben | Initial design and setup -- repo setup and problem scoping, done offline with Song Xin |
+| Song Xin | Hybrid retrieval agent, BM25 field weighting, re-ranking heuristics |
 | Jose Loh | Constraint parsing fix, synthetic session sets for generalization testing |
-| emperorgaodi | Release policy and walk strategy, late-turn escalation experiment, randomised holdout harness, cross-validation |
-| ngkokchen | Latency and cost profiling, paraphrase robustness audit |
-| 1rubzz | *(fill in)* |
-
-<!-- TODO before submission:
-     1. Replace handles with the names you want shown publicly.
-     2. Fill in 1rubzz's area above.
-     3. Check nobody's work is missing -- git history does not capture
-        everything (e.g. work done locally and never pushed). -->
+| Wei Jie | Release policy and walk strategy, late-turn escalation experiment, randomised holdout harness, cross-validation |
+| Kok Chen | Latency and cost profiling, paraphrase robustness audit |
