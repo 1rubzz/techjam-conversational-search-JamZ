@@ -93,8 +93,10 @@ python tools/experiment.py --kfold 5
 ```
 
 `docs/EXPERIMENTS.md` records every change that was tried, including the ones
-that were measured and rejected. `docs/GENERALIZATION.md` covers what the
-validation does and does not establish.
+that were measured and rejected. Its *Generalization tooling* and *Holdout
+discipline* sections cover what this validation does and does not establish --
+in particular, why no split of the public 200 can give an unbiased estimate of
+weights that were fitted against those same 200.
 
 ## Limitations
 
