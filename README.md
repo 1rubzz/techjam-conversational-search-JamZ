@@ -93,8 +93,10 @@ python tools/experiment.py --kfold 5
 ```
 
 `docs/EXPERIMENTS.md` records every change that was tried, including the ones
-that were measured and rejected. `docs/GENERALIZATION.md` covers what the
-validation does and does not establish.
+that were measured and rejected. Its *Generalization tooling* and *Holdout
+discipline* sections cover what this validation does and does not establish --
+in particular, why no split of the public 200 can give an unbiased estimate of
+weights that were fitted against those same 200.
 
 ## Limitations
 
@@ -118,11 +120,68 @@ validation does and does not establish.
   on the output.
 - **English-only, text-only.** No multimodal or multilingual handling.
 
+## What we would improve given more time
+
+In priority order, judged by whether it fixes a failure we actually observed
+rather than by whether it satisfies the brief:
+
+1. **Dense retrieval fused with BM25.** BM25 cannot match "something warm for
+   hiking" to a fleece described as "insulated mid-layer", which is exactly how
+   our remaining browsing misses fail. `all-MiniLM-L6-v2` quantized to ONNX is
+   ~50 MB; embedding all 50,000 products gives a 50,000 x 384 array, ~77 MB
+   resident, and Reciprocal Rank Fusion combines the two rankings without adding
+   another hand-tuned weight. It stays in-memory and fully offline, so it keeps
+   the property that makes this submission safe to run.
+2. **Model-based slot extraction.** Replacing the regexes with a small local
+   instruction model producing structured slots -- `{category, color, style,
+   replaces: [...]}` -- removes the fixed-phrase dependency at the root rather
+   than by adding more patterns, and gives attribute-level override handling
+   instead of our coarser constraint-level version.
+3. **Information-gain question selection.** The agent currently asks the same
+   thing every turn. Given the live candidate set, the expected entropy reduction
+   of asking about each attribute is computable directly -- ask about colour when
+   candidates are evenly split on colour, not when 390 of 400 are black. This
+   needs no model at all, only the candidate distribution. Worth noting honestly
+   that it would probably *lower* our score: the simulator returns up to two
+   constraints for a generic question and often nothing for a targeted one, so
+   the better product behaviour is the worse benchmark behaviour.
+4. **Cross-encoder reranking** over the top ~50 candidates, which is the semantic
+   ranking stage the brief describes. Of the four this is the one a reader is
+   most likely to look for and the one we expect to gain least, given how much of
+   this benchmark is exact metadata matching.
+
+None of these were attempted for the submission. Adding model weights means
+committing them to the repository so the agent still loads if the evaluation runs
+without network, and that was not a change to make on the last day.
+
 ## Resource usage
 
 Fully offline, so `reported_token_usage` is `0` prompt and `0` completion, and
-estimated model cost is **$0.00**. A full 200-session evaluation takes about
-five minutes on a laptop, dominated by building the in-memory FTS index once.
+estimated model cost is **$0.00**. No API keys, no network access, no rate limits,
+and no fallback path to describe, because there is nothing to fall back from.
+
+Measured on the full 200-session public set with `tools/_latency.py`
+(16 cores, Python 3.13, catalog on local disk):
+
+| | |
+|---|---|
+| index build, once per process | 10.4 s |
+| evaluation, 200 sessions | 166.2 s |
+| per turn, mean / p50 | 288 ms / 294 ms |
+| per turn, p90 / p99 / max | 401 ms / 647 ms / 743 ms |
+| slowest single session | 3.40 s |
+
+The constructor builds the 50,000-product FTS5 index and takes ~10 s. That cost
+is paid **once per process**, not once per session; `reset()` is cheap and clears
+all per-session state, so one `Agent` serves every session.
+
+The organizer's harness imports the submission locally rather than calling it
+over a URL or a fixed port, so a single import and a single `Agent` is the
+expected shape. Run that way, the 800-session private set projects to
+**~11 minutes**. The index build is the only cost that scales with process count,
+so it is the one thing worth knowing about if sessions are ever sharded across
+workers or run one process each -- correctness is unaffected either way, since no
+state that affects results survives `reset()`.
 
 ## Team
 
@@ -131,6 +190,11 @@ five minutes on a laptop, dominated by building the in-memory FTS index once.
 | wsxcode | Hybrid retrieval agent, BM25 field weighting, re-ranking heuristics |
 | Jose Loh | Constraint parsing fix, synthetic session sets for generalization testing |
 | emperorgaodi | Release policy and walk strategy, late-turn escalation, randomised holdout harness, cross-validation |
+| ngkokchen | Latency and cost profiling, paraphrase robustness audit |
+| 1rubzz | *(fill in)* |
 
-<!-- TODO before submission: replace handles with the names you want shown, and
-     add anyone whose work is not captured in git history. -->
+<!-- TODO before submission:
+     1. Replace handles with the names you want shown publicly.
+     2. Fill in 1rubzz's area above.
+     3. Check nobody's work is missing -- git history does not capture
+        everything (e.g. work done locally and never pushed). -->
