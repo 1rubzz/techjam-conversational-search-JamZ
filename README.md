@@ -34,14 +34,9 @@ customer turn
      |            price and rating priors  -> ordered candidates
      v
 [ release policy ]  offer ONE unseen product per turn; widen on the last turn
-     |
-     v
-[ escalation ]    from turn 4, if the precision track has not converged:
-                  relax the category assumption, widen the candidate pool,
-                  treat everything already offered as a rejection
 ```
 
-Three design decisions carry most of the result:
+Two design decisions carry most of the result:
 
 **1. Ask a question every turn.** The simulated customer only discloses new
 constraints in response to `ask_attribute`. The provided starter leaves it null,
@@ -54,11 +49,12 @@ target at internal rank `r`, offering one instead of ten is worth
 `0.30*(1 - 1/r) - 0.02*(r - 1)`, positive for every `r` from 2 to 10. The final
 turn releases a full list as insurance.
 
-**3. Change strategy when the first one fails.** A session still unresolved after
-a few turns is usually one where an early assumption was wrong -- most often the
-coarse category parsed out of the opening message, which the re-ranker otherwise
-*penalises* the true target for missing. Escalation stops trusting it, widens
-retrieval, and uses every product already offered as negative evidence.
+A third idea -- escalating strategy on sessions still unresolved after a few
+turns, by relaxing the category assumption and widening retrieval -- was tried
+and measured to *cost* score (see "Rejected: late-turn escalation" in
+`docs/EXPERIMENTS.md`). It's kept in the code behind `escalate_from_turn`
+(default `0`, disabled) so the negative result stays reproducible, but it plays
+no part in the numbers above.
 
 ## Setup
 
@@ -93,8 +89,8 @@ python tools/experiment.py --kfold 5
 ```
 
 `docs/EXPERIMENTS.md` records every change that was tried, including the ones
-that were measured and rejected. `docs/GENERALIZATION.md` covers what the
-validation does and does not establish.
+that were measured and rejected, and its "Generalization tooling" / "Holdout
+discipline" sections cover what the validation does and does not establish.
 
 ## Limitations
 
@@ -130,7 +126,4 @@ five minutes on a laptop, dominated by building the in-memory FTS index once.
 |---|---|
 | wsxcode | Hybrid retrieval agent, BM25 field weighting, re-ranking heuristics |
 | Jose Loh | Constraint parsing fix, synthetic session sets for generalization testing |
-| emperorgaodi | Release policy and walk strategy, late-turn escalation, randomised holdout harness, cross-validation |
-
-<!-- TODO before submission: replace handles with the names you want shown, and
-     add anyone whose work is not captured in git history. -->
+| emperorgaodi | Release policy and walk strategy, late-turn escalation experiment, randomised holdout harness, cross-validation |
