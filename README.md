@@ -137,13 +137,17 @@ Measured on the full 200-session public set with `tools/_latency.py`
 | per turn, p90 / p99 / max | 401 ms / 647 ms / 743 ms |
 | slowest single session | 3.40 s |
 
-**Construct the `Agent` once and reuse it across sessions.** The constructor
-builds a 50,000-product FTS5 index and takes ~10 s; `reset()` is cheap and clears
-all per-session state. Run sequentially in one process, the 800-session private
-set projects to **~11 minutes**. Constructing one `Agent` per session instead pays
-the index build 800 times and projects to **~162 minutes**. Sharding sessions
-across workers is safe for correctness -- no state affecting results survives
-`reset()` -- it is only expensive.
+The constructor builds the 50,000-product FTS5 index and takes ~10 s. That cost
+is paid **once per process**, not once per session; `reset()` is cheap and clears
+all per-session state, so one `Agent` serves every session.
+
+The organizer's harness imports the submission locally rather than calling it
+over a URL or a fixed port, so a single import and a single `Agent` is the
+expected shape. Run that way, the 800-session private set projects to
+**~11 minutes**. The index build is the only cost that scales with process count,
+so it is the one thing worth knowing about if sessions are ever sharded across
+workers or run one process each -- correctness is unaffected either way, since no
+state that affects results survives `reset()`.
 
 ## Team
 
