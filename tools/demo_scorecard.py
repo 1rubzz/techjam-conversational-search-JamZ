@@ -19,11 +19,13 @@ on the same sessions.
     python tools/demo_scorecard.py --compare           # ours vs return-ten
     python tools/demo_scorecard.py --random 100        # unseen products
     python tools/demo_scorecard.py --html demo.html    # shareable page
+    python tools/demo_scorecard.py --from-results results.json   # render a scored run
 """
 from __future__ import annotations
 
 import argparse
 import html
+import json
 import sys
 import time
 from collections import defaultdict
@@ -185,8 +187,30 @@ def main() -> None:
                    help="draw N never-before-seen sessions instead of --dataset")
     p.add_argument("--compare", action="store_true",
                    help="also score the return-ten policy on the same sessions")
+    p.add_argument("--from-results", default="", metavar="PATH",
+                   help="render a results.json the evaluator already wrote, "
+                        "instead of running sessions (no index build, instant)")
     p.add_argument("--html", default="", help="also write a self-contained HTML page")
     args = p.parse_args()
+
+    if args.from_results:
+        # The evaluator already scored these sessions and wrote them out;
+        # re-running would only rebuild the index to reach the same numbers.
+        payload = json.loads(Path(args.from_results).read_text(encoding="utf-8"))
+        sessions = payload.get("sessions") or []
+        if not sessions:
+            raise SystemExit(
+                "no per-session records in " + args.from_results
+                + " -- rerun the evaluator so it writes them"
+            )
+        source = "{} sessions from {}".format(len(sessions), Path(args.from_results).name)
+        card = scorecard(sessions)
+        print("\n  " + source)
+        print_card("Scored run", card)
+        if args.html:
+            write_html(Path(args.html), [("Scored run", card)], source)
+            print("  wrote {}\n".format(args.html))
+        return
 
     if args.random:
         from generate_synthetic_set import build_sessions

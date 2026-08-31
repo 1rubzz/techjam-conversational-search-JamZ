@@ -115,6 +115,14 @@ python tools/demo_scorecard.py --random 100
 
 # also write a self-contained HTML page
 python tools/demo_scorecard.py --count 40 --compare --html demo.html
+
+# render a run the evaluator already scored, without re-running it
+python -m evaluator.local_evaluator --output results.json
+python tools/demo_scorecard.py --from-results results.json
+
+# same, for the one-command random check
+python tools/run_random_check.py
+python tools/demo_scorecard.py --from-results tools/_random_check_results.json
 ```
 
 `python -m evaluator.local_evaluator` remains the authority for scoring; it
