@@ -102,19 +102,8 @@ def assign_scenarios(rng: random.Random, count: int) -> list[str]:
     return rng.choices(scenarios, weights=weights, k=count)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a synthetic session set for local generalization testing")
-    parser.add_argument("--count", type=int, default=2000)
-    parser.add_argument(
-        "--seed", type=int, default=None,
-        help="Fixed seed for a reproducible set (used for the committed A/B/C sets). "
-             "Omit for a fresh random draw each run.",
-    )
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    args = parser.parse_args()
-
-    rng = random.Random(args.seed)
-
+def eligible_targets() -> list[str]:
+    """Every catalog product except the 200 the public set already covers."""
     public_targets = {
         str(sample["ground_truth"]["parent_asin"]) for sample in load_jsonl(PUBLIC_SET_PATH)
     }
@@ -125,28 +114,57 @@ def main() -> None:
             asin = str(product["parent_asin"])
             if asin not in public_targets:
                 catalog_asins.append(asin)
+    return catalog_asins
 
-    if args.count > len(catalog_asins):
-        raise ValueError(f"Requested {args.count} sessions but only {len(catalog_asins)} eligible products exist")
 
-    targets = rng.sample(catalog_asins, args.count)
-    scenarios = assign_scenarios(rng, args.count)
+def build_sessions(count: int, seed: int | None, prefix: str = "synthetic") -> list[dict]:
+    """Build `count` sessions in the schema the official evaluator expects.
 
+    Exposed so a caller can hold a freshly drawn set in memory (see
+    tools/experiment.py --random) rather than only writing one to disk.
+    """
+    # random.Random(None) seeds from OS entropy, i.e. a fresh draw.
+    rng = random.Random(seed)
+    catalog_asins = eligible_targets()
+    if count > len(catalog_asins):
+        raise ValueError(
+            f"Requested {count} sessions but only {len(catalog_asins)} eligible products exist"
+        )
+
+    targets = rng.sample(catalog_asins, count)
+    scenarios = assign_scenarios(rng, count)
+    return [
+        {
+            "sample_id": f"{prefix}_{index:05d}",
+            "scenario_type": scenario,
+            "category_bucket": "clothing",
+            "difficulty_bucket": "synthetic",
+            "ground_truth": {"parent_asin": target},
+            "user_profile": build_profile(rng),
+        }
+        for index, (target, scenario) in enumerate(zip(targets, scenarios))
+    ]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate a synthetic session set for local generalization testing"
+    )
+    parser.add_argument("--count", type=int, default=2000)
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Fixed seed for a reproducible set (used for the committed A/B/C sets). "
+             "Omit for a fresh random draw each run.",
+    )
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    args = parser.parse_args()
+
+    sessions = build_sessions(args.count, args.seed)
     with args.output.open("w", encoding="utf-8") as handle:
-        for index, (target, scenario) in enumerate(zip(targets, scenarios)):
-            sample = {
-                "sample_id": f"synthetic_{index:05d}",
-                "scenario_type": scenario,
-                "category_bucket": "clothing",
-                "difficulty_bucket": "synthetic",
-                "ground_truth": {"parent_asin": target},
-                "user_profile": build_profile(rng),
-            }
+        for sample in sessions:
             handle.write(json.dumps(sample) + "\n")
 
     print(f"Wrote {args.count} synthetic sessions to {args.output}")
-    print(f"Eligible catalog products (excluding the 200 public targets): {len(catalog_asins)}")
-
 
 if __name__ == "__main__":
     main()
