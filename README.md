@@ -121,8 +121,27 @@ validation does and does not establish.
 ## Resource usage
 
 Fully offline, so `reported_token_usage` is `0` prompt and `0` completion, and
-estimated model cost is **$0.00**. A full 200-session evaluation takes about
-five minutes on a laptop, dominated by building the in-memory FTS index once.
+estimated model cost is **$0.00**. No API keys, no network access, no rate limits,
+and no fallback path to describe, because there is nothing to fall back from.
+
+Measured on the full 200-session public set with `tools/_latency.py`
+(16 cores, Python 3.13, catalog on local disk):
+
+| | |
+|---|---|
+| index build, once per process | 10.4 s |
+| evaluation, 200 sessions | 166.2 s |
+| per turn, mean / p50 | 288 ms / 294 ms |
+| per turn, p90 / p99 / max | 401 ms / 647 ms / 743 ms |
+| slowest single session | 3.40 s |
+
+**Construct the `Agent` once and reuse it across sessions.** The constructor
+builds a 50,000-product FTS5 index and takes ~10 s; `reset()` is cheap and clears
+all per-session state. Run sequentially in one process, the 800-session private
+set projects to **~11 minutes**. Constructing one `Agent` per session instead pays
+the index build 800 times and projects to **~162 minutes**. Sharding sessions
+across workers is safe for correctness -- no state affecting results survives
+`reset()` -- it is only expensive.
 
 ## Team
 
@@ -131,6 +150,11 @@ five minutes on a laptop, dominated by building the in-memory FTS index once.
 | wsxcode | Hybrid retrieval agent, BM25 field weighting, re-ranking heuristics |
 | Jose Loh | Constraint parsing fix, synthetic session sets for generalization testing |
 | emperorgaodi | Release policy and walk strategy, late-turn escalation, randomised holdout harness, cross-validation |
+| ngkokchen | Latency and cost profiling, paraphrase robustness audit |
+| 1rubzz | *(fill in)* |
 
-<!-- TODO before submission: replace handles with the names you want shown, and
-     add anyone whose work is not captured in git history. -->
+<!-- TODO before submission:
+     1. Replace handles with the names you want shown publicly.
+     2. Fill in 1rubzz's area above.
+     3. Check nobody's work is missing -- git history does not capture
+        everything (e.g. work done locally and never pushed). -->
