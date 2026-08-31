@@ -96,6 +96,31 @@ python tools/experiment.py --kfold 5
 that were measured and rejected. `docs/GENERALIZATION.md` covers what the
 validation does and does not establish.
 
+## Demo
+
+Two viewers, both of which reuse the official evaluator rather than
+re-implementing any part of it:
+
+```bash
+# one session, turn by turn: what the customer says, what the agent
+# understands, what it offers, and when it hits
+python tools/demo_session.py --scenario intent_override
+
+# a live scored run ending in a scorecard, with the before/after
+# comparison on identical sessions
+python tools/demo_scorecard.py --count 40 --compare
+
+# the same, against products never used in tuning
+python tools/demo_scorecard.py --random 100
+
+# also write a self-contained HTML page
+python tools/demo_scorecard.py --count 40 --compare --html demo.html
+```
+
+`python -m evaluator.local_evaluator` remains the authority for scoring; it
+prints nothing for several minutes and then emits JSON, which is correct for
+scoring and unhelpful on camera.
+
 ## Limitations
 
 - **Tuned against one simulator.** Constraint extraction keys off the fixed
