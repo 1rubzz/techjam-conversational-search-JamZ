@@ -120,6 +120,40 @@ weights that were fitted against those same 200.
   on the output.
 - **English-only, text-only.** No multimodal or multilingual handling.
 
+## What we would improve given more time
+
+In priority order, judged by whether it fixes a failure we actually observed
+rather than by whether it satisfies the brief:
+
+1. **Dense retrieval fused with BM25.** BM25 cannot match "something warm for
+   hiking" to a fleece described as "insulated mid-layer", which is exactly how
+   our remaining browsing misses fail. `all-MiniLM-L6-v2` quantized to ONNX is
+   ~50 MB; embedding all 50,000 products gives a 50,000 x 384 array, ~77 MB
+   resident, and Reciprocal Rank Fusion combines the two rankings without adding
+   another hand-tuned weight. It stays in-memory and fully offline, so it keeps
+   the property that makes this submission safe to run.
+2. **Model-based slot extraction.** Replacing the regexes with a small local
+   instruction model producing structured slots -- `{category, color, style,
+   replaces: [...]}` -- removes the fixed-phrase dependency at the root rather
+   than by adding more patterns, and gives attribute-level override handling
+   instead of our coarser constraint-level version.
+3. **Information-gain question selection.** The agent currently asks the same
+   thing every turn. Given the live candidate set, the expected entropy reduction
+   of asking about each attribute is computable directly -- ask about colour when
+   candidates are evenly split on colour, not when 390 of 400 are black. This
+   needs no model at all, only the candidate distribution. Worth noting honestly
+   that it would probably *lower* our score: the simulator returns up to two
+   constraints for a generic question and often nothing for a targeted one, so
+   the better product behaviour is the worse benchmark behaviour.
+4. **Cross-encoder reranking** over the top ~50 candidates, which is the semantic
+   ranking stage the brief describes. Of the four this is the one a reader is
+   most likely to look for and the one we expect to gain least, given how much of
+   this benchmark is exact metadata matching.
+
+None of these were attempted for the submission. Adding model weights means
+committing them to the repository so the agent still loads if the evaluation runs
+without network, and that was not a change to make on the last day.
+
 ## Resource usage
 
 Fully offline, so `reported_token_usage` is `0` prompt and `0` completion, and
