@@ -20,3 +20,7 @@ tests/test_organizer_pipeline.py
 # each run, so there's nothing worth committing here.
 tools/_random_check.jsonl
 tools/_random_check_results.json
+
+# demo artefacts (regenerate with tools/demo_scorecard.py --html)
+tools/_demo_preview.html
+demo.html
