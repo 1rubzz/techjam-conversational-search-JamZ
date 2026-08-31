@@ -133,7 +133,7 @@ not run.
   byte-identical, costs about half the score, and 89% of that traces to a single
   regular expression. A real customer says "those boots my brother has", not
   "Item model number: RX-4471" — closing that gap is the same embedding work
-  above.
+  above. Full measurement and method in `docs/PARAPHRASE_ROBUSTNESS.md`.
 - **Clarification is degenerate, and the metric rewards that.** The agent always
   asks `ask_attribute="other"`, because the simulator returns up to two
   constraints for a generic question and often *nothing* for a targeted one. A
